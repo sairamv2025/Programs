@@ -52,3 +52,7 @@ int main()
     s.registerObserver(&d1);
     s.setMesurements(100,200);
 }
+/*
+Output:
+temp:100,press =200
+/*
