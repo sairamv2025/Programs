@@ -1,0 +1,54 @@
+//Observer Design patterns - example 
+#include <iostream>
+#include <vector>
+using namespace std;
+
+class Observer
+{
+    public:
+    virtual void update(float temp,float press)=0;
+};
+
+class Subject
+{
+    float temp,press;
+    std::vector<Observer *> observers;
+    public:
+    void registerObserver(Observer *observer)
+    {
+        observers.push_back(observer);
+    }
+    void deleteObserver (Observer * Observer) {}
+    void notifyObserver()
+    {
+        for(Observer *observer: observers)
+        {
+            observer->update(temp,press);
+        }
+    }
+    void setMesurements(float t,float p)
+    {
+        temp = t;
+        press = p;
+        notifyObserver();
+    }
+    
+};
+
+class display:public Observer
+{
+    public: 
+    
+    void update (float temp,float press)
+    {
+        cout <<"temp is:"<< temp<< "press:" <<press;
+    }
+};
+
+int main()
+{
+    display d1;
+    Subject s;
+    s.registerObserver(&d1);
+    s.setMesurements(100,200);
+}
