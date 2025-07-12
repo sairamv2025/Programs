@@ -1,0 +1,123 @@
+#include <iostream>
+#include <fstream>
+#include <mutex>
+#include <memory>
+#include <chrono>
+#include <ctime>
+#include <sstream>
+#include <iomanip>
+
+enum class LogLevel {
+    INFO,
+    DEBUG,
+    ERROR
+};
+
+enum class OutputMode {
+    CONSOLE,
+    FILE,
+    BOTH
+};
+
+class Logger {
+private:
+    std::mutex mtx;
+    std::ofstream file;
+    OutputMode mode;
+
+    Logger() : mode(OutputMode::BOTH) {
+        file.open("log.txt", std::ios::app);
+    }
+
+    std::string currentTime() {
+        auto now = std::chrono::system_clock::now();
+        std::time_t now_time = std::chrono::system_clock::to_time_t(now);
+        std::tm tm = *std::localtime(&now_time);
+
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%d %H:%M:%S");
+        return oss.str();
+    }
+
+    std::string levelToString(LogLevel level) {
+        switch (level) {
+            case LogLevel::INFO: return "INFO";
+            case LogLevel::DEBUG: return "DEBUG";
+            case LogLevel::ERROR: return "ERROR";
+            default: return "UNKNOWN";
+        }
+    }
+
+public:
+    Logger(const Logger&) = delete;
+    Logger& operator=(const Logger&) = delete;
+
+    static Logger& getInstance() {
+        static Logger instance;
+        return instance;
+    }
+
+    void setOutputMode(OutputMode newMode) {
+        std::lock_guard<std::mutex> lock(mtx);
+        mode = newMode;
+    }
+
+    void log(const std::string& msg, LogLevel level = LogLevel::INFO) {
+        std::lock_guard<std::mutex> lock(mtx);
+        std::string timestamp = currentTime();
+        std::string logMsg = "[" + timestamp + "] [" + levelToString(level) + "] " + msg;
+
+        if (mode == OutputMode::FILE || mode == OutputMode::BOTH) {
+            file << logMsg << std::endl;
+        }
+
+        if (mode == OutputMode::CONSOLE || mode == OutputMode::BOTH) {
+            std::cout << logMsg << std::endl;
+        }
+    }
+};
+
+// Test Code (main function)
+#include <thread>
+#include <vector>
+
+// Forward declaration
+void logTask(int threadId);
+
+int main() {
+    Logger& logger = Logger::getInstance();
+    logger.setOutputMode(OutputMode::BOTH);  // Options: CONSOLE, FILE, BOTH
+
+    const int numThreads = 3;
+    std::vector<std::thread> threads;
+
+    for (int i = 0; i < numThreads; ++i) {
+        threads.emplace_back(logTask, i);
+    }
+
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    logger.log("Application finished", LogLevel::INFO);
+    return 0;
+}
+
+void logTask(int threadId) {
+    Logger& logger = Logger::getInstance();
+
+    logger.log("Thread " + std::to_string(threadId) + " started", LogLevel::DEBUG);
+    for (int i = 0; i < 5; ++i) {
+        logger.log("Thread " + std::to_string(threadId) + " logging message " + std::to_string(i), LogLevel::INFO);
+    }
+    logger.log("Thread " + std::to_string(threadId) + " ended", LogLevel::DEBUG);
+}
+/*
+output: created log.txt file
+[2025-07-12 08:01:27] [INFO] Thread 1 logging message 1
+[2025-07-12 08:01:27] [INFO] Thread 1 logging message 2
+[2025-07-12 08:01:27] [INFO] Thread 1 logging message 3
+[2025-07-12 08:01:27] [INFO] Thread 1 logging message 4
+[2025-07-12 08:01:27] [DEBUG] Thread 1 ended
+[2025-07-12 08:01:27] [INFO] Application finished
+*/
